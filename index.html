@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0E1512">
+<meta name="description" content="Free hands-free voice assistant in Hindi and English with private notes, tasks and timers.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Pocket Assistant</title>
+<style>
+/* Layout: one phone-width column. Header, then a console with a hands-free status strip, voice options, chat and command bar; saved lists; build guide. */
+:root{
+  --bg:#F0F3F1; --surface:#FFFFFF; --ink:#14211C; --muted:#5A6A63; --line:#D5DDD9;
+  --signal:#00765A; --signal-ink:#FFFFFF; --warn:#B4400A;
+  --display:"Avenir Next","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --body:Roboto,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1512; --surface:#16201C; --ink:#E6EEEA; --muted:#8FA198; --line:#26332D;
+  --signal:#4FD6A3; --signal-ink:#06150F; --warn:#F2A25C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1512; --surface:#16201C; --ink:#E6EEEA; --muted:#8FA198; --line:#26332D;
+  --signal:#4FD6A3; --signal-ink:#06150F; --warn:#F2A25C; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:640px;margin-inline:auto;display:flex;flex-direction:column;gap:22px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:2rem;letter-spacing:-.02em}
+h2{font-size:1.2rem}
+p{margin:0}
+a{color:var(--signal)}
+.muted{color:var(--muted)}
+:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+header{display:flex;flex-direction:column;gap:10px}
+.badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;color:var(--signal);border:1px solid var(--signal);padding:4px 10px;border-radius:999px;align-self:flex-start}
+.badge i{width:8px;height:8px;border-radius:50%;background:var(--signal);display:inline-block}
+.console{background:var(--surface);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+.live{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--muted);flex:none}
+.live.on .dot{background:var(--signal);animation:pulse 1.6s infinite}
+.live.talk .dot{background:var(--warn)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--signal)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.status{flex:1;min-width:140px;font-size:.9rem}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;padding:12px 14px 0}
+.opts label{display:flex;flex-direction:column;gap:3px;font-size:.75rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);min-width:0}
+.opts select{font:inherit;font-size:.9rem;text-transform:none;letter-spacing:0;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0;width:100%}
+.check{display:flex;gap:8px;align-items:center;padding:10px 14px 0;font-size:.9rem}
+.check input{width:18px;height:18px;accent-color:var(--signal)}
+.note{padding:8px 14px 12px;font-size:.8rem;border-bottom:1px solid var(--line)}
+.log{height:min(46vh,380px);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:9px 13px;border-radius:12px;overflow-wrap:anywhere;white-space:pre-wrap}
+.msg.bot{background:var(--bg);align-self:flex-start;border-top-left-radius:3px}
+.msg.user{background:var(--signal);color:var(--signal-ink);align-self:flex-end;border-top-right-radius:3px}
+.timers{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 8px}
+.timers:empty{display:none}
+.timer{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:.85rem;border:1px solid var(--line);border-radius:8px;padding:4px 10px;display:flex;gap:8px;align-items:center}
+.timer button{all:unset;cursor:pointer;color:var(--warn);font-weight:700;padding:0 2px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 14px;border-top:1px solid var(--line)}
+.chip{flex:none;font:inherit;font-size:.85rem;background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer}
+.chip:hover{border-color:var(--signal)}
+form.bar{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+form.bar input{flex:1;min-width:0;font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+.btn{font:inherit;font-weight:600;border:0;border-radius:10px;padding:0 16px;min-height:44px;cursor:pointer;background:var(--signal);color:var(--signal-ink)}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn[aria-pressed="true"].ghost{border-color:var(--signal);color:var(--signal)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;padding:0 14px 14px}
+.tools .btn{min-height:38px;font-size:.85rem}
+.saved{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.box ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.box li{display:flex;gap:8px;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:6px;overflow-wrap:anywhere}
+.box li:last-child{border-bottom:0}
+.box li button{all:unset;cursor:pointer;color:var(--warn);font-family:var(--mono);font-size:.8rem;flex:none}
+.done{text-decoration:line-through;color:var(--muted)}
+.empty{color:var(--muted);font-size:.9rem}
+section.guide{display:flex;flex-direction:column;gap:14px}
+.step{display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.step b{font-family:var(--mono);color:var(--signal)}
+.step div{min-width:0}
+.limits{border-left:3px solid var(--warn);padding-left:12px}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto!important}.live.on .dot{animation:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <svg viewBox="0 0 512 512" width="64" height="64" role="img" aria-label="Pocket Assistant logo"><rect width="512" height="512" rx="112" fill="#0E1512"/><path d="M116 150H396V310Q396 330 380 340L256 416L132 340Q116 330 116 310Z" fill="none" stroke="#4FD6A3" stroke-width="18" stroke-linejoin="round"/><path d="M146 180H366" stroke="#4FD6A3" stroke-opacity=".55" stroke-width="6" stroke-dasharray="12 10" stroke-linecap="round"/><g fill="#4FD6A3"><rect x="167" y="240" width="18" height="44" rx="9"/><rect x="207" y="216" width="18" height="92" rx="9"/><rect x="247" y="194" width="18" height="136" rx="9"/><rect x="287" y="216" width="18" height="92" rx="9"/><rect x="327" y="240" width="18" height="44" rx="9"/></g></svg>
+    <span class="badge"><i></i>Runs on this phone</span>
+    <h1>Pocket Assistant</h1>
+    <p class="muted">A free voice and text assistant with a female voice that speaks with emotion. Notes, tasks and timers stay in this browser. The page has no server, account or tracking.</p>
+  </header>
+
+  <div class="console">
+    <div class="live" id="live">
+      <span class="dot"></span>
+      <span class="status" id="status">Hands-free is off.</span>
+      <button class="btn" id="hf" type="button" aria-pressed="false">Start hands-free</button>
+    </div>
+    <div class="opts">
+      <label>Language<select id="lang"><option value="en-IN">English (India)</option><option value="hi-IN">हिन्दी</option><option value="en-US">English (US)</option></select></label>
+      <label>Voice<select id="voice"><option value="auto">Auto (female match)</option></select></label>
+      <label>Emotion<select id="emo">
+        <option value="auto">Auto (matches the reply)</option>
+        <option value="happy">Happy</option><option value="excited">Excited</option><option value="sad">Sad</option>
+        <option value="calm">Calm</option><option value="angry">Angry</option><option value="surprised">Surprised</option>
+        <option value="whisper">Whisper</option><option value="loving">Loving</option><option value="worried">Worried</option>
+      </select></label>
+    </div>
+    <label class="check"><input type="checkbox" id="wake" checked> Wait for the wake word "Hey Pocket"</label>
+    <p class="note muted">Hands-free keeps the microphone on. Chrome sends what it hears to Google's speech service to turn it into text, so switch it off when you want full privacy. Typing never leaves the phone.</p>
+
+    <div id="log" class="log" role="log" aria-live="polite"></div>
+    <div id="timers" class="timers"></div>
+    <div class="chips" id="chips"></div>
+    <form class="bar" id="form" autocomplete="off">
+      <input id="cmd" type="text" placeholder="Type a command, or say Hey Pocket" aria-label="Command" enterkeyhint="send">
+      <button class="btn" type="submit">Send</button>
+    </form>
+    <div class="tools">
+      <button class="btn ghost" id="mic" type="button" aria-pressed="false">Mic once</button>
+      <button class="btn ghost" id="speak" type="button" aria-pressed="true">Voice replies on</button>
+      <button class="btn ghost" id="demo" type="button">Hear all emotions</button>
+      <button class="btn ghost" id="wipe" type="button">Erase everything</button>
+    </div>
+  </div>
+
+  <div class="saved">
+    <div class="box"><h2>Notes</h2><ul id="notes"></ul></div>
+    <div class="box"><h2>Tasks</h2><ul id="tasks"></ul></div>
+  </div>
+
+  <section class="guide">
+    <h2>Make it a real Android assistant</h2>
+    <div class="step"><b>1</b><div><strong>Install it like an app.</strong> Host this file on an https address (GitHub Pages or Netlify Drop), open it in Chrome on your phone, allow the microphone once, then choose menu, Add to Home screen. Chrome then remembers the permission.</div></div>
+    <div class="step"><b>2</b><div><strong>Hands-free needs one tap.</strong> Browsers do not let a page switch on the microphone with no touch at all. The page tries to start by itself, and if Chrome refuses it, one tap anywhere starts continuous listening. Keep the screen on and the tab open.</div></div>
+    <div class="step"><b>3</b><div><strong>About the emotions.</strong> The voice is your phone's built-in text-to-speech. Emotion comes from changing pitch, speed and volume, so it is expressive but not a human actor. Pick another voice in the Voice list if one sounds better on your phone.</div></div>
+    <div class="step"><b>4</b><div><strong>Go native for the Siri parts.</strong> A web page cannot run in the background, open other apps, place calls, send texts or set system alarms. A free Android Studio project with <code>SpeechRecognizer</code>, <code>TextToSpeech</code> and Android intents can, and an offline engine such as Vosk keeps audio on the device.</div></div>
+    <p class="limits muted">This assistant matches phrases you give it; it is not a language model.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var log=$("log"), cmd=$("cmd"), timersEl=$("timers");
+  var synth=("speechSynthesis" in window)?window.speechSynthesis:null;
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+
+  /* ---------- storage ---------- */
+  var store={notes:[],tasks:[]};
+  try{var s0=localStorage.getItem("pocket-assistant-v1");if(s0){var o0=JSON.parse(s0);if(o0&&o0.notes&&o0.tasks)store=o0}}catch(e){}
+  function save(){try{localStorage.setItem("pocket-assistant-v1",JSON.stringify(store))}catch(e){}}
+  var prefs={};
+  try{prefs=JSON.parse(localStorage.getItem("pocket-assistant-prefs")||"{}")||{}}catch(e){}
+  function savePrefs(){prefs={lang:$("lang").value,voice:$("voice").value,emo:$("emo").value,wake:$("wake").checked};
+    try{localStorage.setItem("pocket-assistant-prefs",JSON.stringify(prefs))}catch(e){}}
+  var navHi=/^hi/i.test(navigator.language||"");
+  $("lang").value=prefs.lang||(navHi?"hi-IN":"en-IN");
+  if(prefs.emo)$("emo").value=prefs.emo;
+  if(typeof prefs.wake==="boolean")$("wake").checked=prefs.wake;
+  function hi(){return $("lang").value==="hi-IN"}
+  function T(en,h){return hi()?h:en}
+
+  /* ---------- voice: female pick + emotion as pitch, rate, volume ---------- */
+  var EMO={
+    neutral:{p:1.1,r:1,v:1}, happy:{p:1.3,r:1.08,v:1}, excited:{p:1.5,r:1.22,v:1},
+    sad:{p:.85,r:.8,v:.8}, calm:{p:1.0,r:.86,v:.85}, angry:{p:.95,r:1.22,v:1},
+    surprised:{p:1.65,r:1.12,v:1}, whisper:{p:1.1,r:.8,v:.3}, loving:{p:1.2,r:.86,v:.9}, worried:{p:1.15,r:1.06,v:.9}
+  };
+  var FEM=/female|woman|zira|heera|kalpana|hazel|susan|samantha|karen|veena|priya|neerja|swara|aria|jenny|sonia|tessa|fiona|moira|lekha|raveena|siri|\bhia\b|-hia|-hic/i;
+  var voices=[], speakOn=true, speaking=false;
+  function fillVoices(){
+    if(!synth)return;
+    voices=synth.getVoices()||[];
+    var sel=$("voice");sel.innerHTML="";
+    var a=document.createElement("option");a.value="auto";a.textContent="Auto (female match)";sel.appendChild(a);
+    voices.forEach(function(v){var o=document.createElement("option");o.value=v.voiceURI;o.textContent=v.name+" ("+v.lang+")";sel.appendChild(o)});
+    sel.value=prefs.voice||"auto";if(!sel.value)sel.value="auto";
+  }
+  fillVoices();
+  if(synth)synth.onvoiceschanged=fillVoices;
+  function nl(v){return v.lang.toLowerCase().replace("_","-")}
+  function pickVoice(){
+    var pref=$("voice").value;
+    if(pref&&pref!=="auto"){for(var i=0;i<voices.length;i++)if(voices[i].voiceURI===pref)return voices[i]}
+    var L=$("lang").value.toLowerCase(),pre=L.slice(0,2);
+    var c=voices.filter(function(v){return nl(v).indexOf(pre)===0});
+    var exact=c.filter(function(v){return nl(v)===L});
+    var pool=exact.length?exact:c;
+    var f=pool.filter(function(v){return FEM.test(v.name)||FEM.test(v.voiceURI)});
+    return f[0]||pool[0]||null;
+  }
+  function autoEmo(t){
+    if(/sorry|cannot|could not|do not know|blocked|maaf|नहीं|माफ़/i.test(t))return "sad";
+    if(/!|great|saved|added|done|haha|वाह|बढ़िया/i.test(t))return "happy";
+    return "neutral";
+  }
+  function say(text,emo,cb,force){
+    if(!speakOn||!synth){if(cb)cb();return}
+    try{
+      synth.cancel();
+      var key=force?emo:($("emo").value!=="auto"?$("emo").value:(emo||autoEmo(text)));
+      var e=EMO[key]||EMO.neutral;
+      var u=new SpeechSynthesisUtterance(text),v=pickVoice();
+      if(v){u.voice=v;u.lang=v.lang}else u.lang=$("lang").value;
+      var fem=v&&(FEM.test(v.name)||FEM.test(v.voiceURI));
+      u.pitch=Math.min(2,e.p*(fem?1:1.12));u.rate=e.r;u.volume=e.v;
+      var finished=false;
+      function fin(){if(finished)return;finished=true;setSpeaking(false);if(cb)cb()}
+      u.onstart=function(){setSpeaking(true)};u.onend=fin;u.onerror=fin;
+      synth.speak(u);
+    }catch(x){if(cb)cb()}
+  }
+
+  /* ---------- chat output ---------- */
+  function add(kind,text,link){
+    var d=document.createElement("div");d.className="msg "+kind;
+    d.appendChild(document.createTextNode(text));
+    if(link){d.appendChild(document.createElement("br"));
+      var a=document.createElement("a");a.href=link.href;a.target="_blank";a.rel="noopener noreferrer";a.textContent=link.label;d.appendChild(a)}
+    log.appendChild(d);log.scrollTop=log.scrollHeight;return d;
+  }
+  function reply(text,link,emo){add("bot",text,link);say(text,emo)}
+
+  /* ---------- lists ---------- */
+  function renderLists(){
+    var n=$("notes"),t=$("tasks");n.innerHTML="";t.innerHTML="";
+    if(!store.notes.length)n.innerHTML='<li class="empty">No notes yet. Say "note buy rice".</li>';
+    store.notes.forEach(function(x,i){
+      var li=document.createElement("li"),s=document.createElement("span");s.textContent=x;
+      var b=document.createElement("button");b.type="button";b.textContent="delete";b.setAttribute("aria-label","Delete note "+(i+1));
+      b.onclick=function(){store.notes.splice(i,1);save();renderLists()};li.appendChild(s);li.appendChild(b);n.appendChild(li)});
+    if(!store.tasks.length)t.innerHTML='<li class="empty">No tasks yet. Say "add task call mom".</li>';
+    store.tasks.forEach(function(x,i){
+      var li=document.createElement("li"),s=document.createElement("span");s.textContent=(i+1)+". "+x.t;if(x.d)s.className="done";
+      var b=document.createElement("button");b.type="button";b.textContent=x.d?"undo":"done";
+      b.onclick=function(){x.d=!x.d;save();renderLists()};li.appendChild(s);li.appendChild(b);t.appendChild(li)});
+  }
+
+  /* ---------- timers ---------- */
+  var timers=[];
+  function beep(){try{var C=window.AudioContext||window.webkitAudioContext,c=new C(),o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.15;o.start();
+    setTimeout(function(){o.stop();c.close()},700)}catch(e){}}
+  function fmt(s){var h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;
+    return (h?h+":":"")+String(m).padStart(h?2:1,"0")+":"+String(x).padStart(2,"0")}
+  function drawTimers(){
+    timersEl.innerHTML="";
+    timers.forEach(function(t){
+      var left=Math.max(0,Math.round((t.end-Date.now())/1000));
+      var d=document.createElement("div");d.className="timer";
+      var s=document.createElement("span");s.textContent=(t.label?t.label+" ":"")+fmt(left);
+      var b=document.createElement("button");b.type="button";b.textContent="x";b.setAttribute("aria-label","Cancel timer");
+      b.onclick=function(){timers=timers.filter(function(z){return z!==t});drawTimers()};
+      d.appendChild(s);d.appendChild(b);timersEl.appendChild(d)});
+  }
+  setInterval(function(){
+    var now=Date.now(),fired=[];
+    timers=timers.filter(function(t){if(t.end<=now){fired.push(t);return false}return true});
+    fired.forEach(function(t){beep();reply(t.label?T("Time is up: ","समय पूरा हुआ: ")+t.label:T("Your timer is done!","आपका टाइमर पूरा हो गया!"),null,"excited")});
+    if(timers.length||fired.length)drawTimers();
+  },500);
+  function unitSecs(u){u=u.toLowerCase();if(/^(h|g|घ)/.test(u))return 3600;if(/^(m|म)/.test(u))return 60;return 1}
+  var U="(second|seconds|secs?|minutes?|mins?|hours?|hrs?|ghante|ghanta|ghanten|घंटे|घंटा|मिनट|सेकंड|सेकेंड|sekand)";
+  var RE_T1=new RegExp("(?:timer|टाइमर)(?:\\s+for)?\\s+(\\d+(?:\\.\\d+)?)\\s*"+U);
+  var RE_T2=new RegExp("(\\d+(?:\\.\\d+)?)\\s*"+U+"\\s*(?:ka\\s+|का\\s+)?(?:timer|टाइमर)");
+  var RE_R=new RegExp("remind me in (\\d+(?:\\.\\d+)?)\\s*"+U+"\\s*(?:to\\s+(.+))?");
+
+  /* ---------- maths ---------- */
+  function calc(q){
+    var s=q.toLowerCase().replace(/^(what is|what's|calculate|compute|how much is)\s+/,"");
+    s=s.replace(/(\d+(?:\.\d+)?)\s*(?:percent|%)\s*of\s*(\d+(?:\.\d+)?)/g,"($1/100*$2)")
+       .replace(/\bplus\b/g,"+").replace(/\bminus\b/g,"-").replace(/\b(times|multiplied by|x)\b/g,"*")
+       .replace(/\b(divided by|over)\b/g,"/").replace(/\^/g,"**").replace(/,/g,"");
+    if(!/^[\d\s+\-*/().]+$/.test(s)||!/\d/.test(s)||!/[+\-*/]/.test(s))return null;
+    try{var v=Function('"use strict";return ('+s+')')();
+      if(typeof v!=="number"||!isFinite(v))return null;return String(Math.round(v*1e8)/1e8)}catch(e){return null}
+  }
+
+  /* ---------- emotion demo ---------- */
+  var DEMO_EN=[["happy","Yay! What a lovely day!"],["excited","Oh wow! This is amazing, I can't wait!"],["sad","I'm so sorry... that really hurts."],["calm","Take a slow breath. Everything is going to be okay."],["angry","That is not okay! I mean it!"],["surprised","What? Really? I can't believe it!"],["whisper","Shh... this is our little secret."],["loving","You are so dear to me."],["worried","Oh no... are you alright?"]];
+  var DEMO_HI=[["happy","वाह! आज का दिन कितना प्यारा है!"],["excited","अरे वाह! यह तो कमाल हो गया!"],["sad","मुझे बहुत दुख हुआ... सच में।"],["calm","गहरी सांस लीजिए। सब ठीक हो जाएगा।"],["angry","यह बिल्कुल ठीक नहीं है! मैं सच कह रही हूँ!"],["surprised","क्या? सच में? मुझे यकीन नहीं हो रहा!"],["whisper","श्श्श... यह हमारा राज़ है।"],["loving","आप मुझे बहुत प्यारे लगते हैं।"],["worried","अरे नहीं... आप ठीक तो हैं न?"]];
+  function demo(){
+    var set=hi()?DEMO_HI:DEMO_EN,i=0;
+    (function next(){if(i>=set.length)return;var it=set[i++];add("bot","("+it[0]+") "+it[1]);say(it[1],it[0],next,true)})();
+  }
+
+  /* ---------- commands ---------- */
+  var SITES={youtube:"https://www.youtube.com",maps:"https://www.google.com/maps",wikipedia:"https://en.wikipedia.org",gmail:"https://mail.google.com",whatsapp:"https://web.whatsapp.com"};
+  var JOKES=["I would tell you a UDP joke, but you might not get it. Ha ha!","There are 10 kinds of people: those who read binary and those who do not. Hehe!","My phone battery and I have the same schedule: both of us die by 4 pm. Ha ha ha!"];
+  function handle(raw){
+    var q=raw.trim();if(!q)return;
+    add("user",q);
+    var l=q.toLowerCase().replace(/[?!.।]+$/,""),m;
+
+    if(/^(hi|hello|hey|namaste|namaskar)\b|^(नमस्ते|हेलो)/.test(l))return reply(T("Hello! I'm so happy to hear you. Say help to see what I can do.","नमस्ते! आपकी आवाज़ सुनकर बहुत अच्छा लगा। मदद बोलिए, तो मैं बताऊँगी मैं क्या कर सकती हूँ।"),null,"happy");
+    if(/^(help|madad)\b|^मदद|what can you do/.test(l))return reply("Try:\n- Hey Pocket, what time is it\n- timer 10 minutes / 5 minute ka timer\n- remind me in 5 minutes to stretch\n- note buy rice / show notes\n- add task call mom / show tasks / done 1\n- 18 percent of 240, or 12 times 7\n- search cheap flights / open youtube\n- I am sad / I am happy / I love you / tell me a secret\n- all emotions / flip a coin / joke / battery",null,"calm");
+    if(/(i am|i'm|im|i feel)\s+(so\s+)?(sad|upset|depressed|down|lonely|hurt)|udaas|dukhi|mann (nahi|kharab)|उदास|दुखी|अकेला|अकेली/.test(l))
+      return reply(T("Oh... I'm so sorry you feel this way. I'm right here with you. Take a slow breath. If it feels too heavy, please talk to someone you trust.","ओह... मुझे सुनकर बहुत दुख हुआ। मैं आपके साथ हूँ। एक गहरी सांस लीजिए। अगर बहुत भारी लगे, तो किसी अपने से ज़रूर बात कीजिए।"),null,"sad");
+    if(/(i am|i'm|im|i feel)\s+(so\s+)?(happy|great|excited|good)|khush|मैं खुश|बहुत खुश/.test(l))
+      return reply(T("Yay! That makes me so happy! Tell me everything!","अरे वाह! यह सुनकर मैं बहुत खुश हूँ! मुझे सब बताइए!"),null,"excited");
+    if(/(i am|i'm|im)\s+(so\s+)?(angry|mad|furious)|gussa|गुस्सा/.test(l))
+      return reply(T("Hey... let's slow down together. In... and out. I'm listening.","अरे... चलिए साथ में धीरे-धीरे सांस लेते हैं। मैं सुन रही हूँ।"),null,"calm");
+    if(/(i am|i'm|im)\s+(scared|afraid|worried)|dar lag|डर/.test(l))
+      return reply(T("Shh... it's okay. I'm here. You are safe right now.","श्श्श... सब ठीक है। मैं यहीं हूँ।"),null,"whisper");
+    if(/i love you|love you|pyaar|pyar|मुझे तुमसे प्यार|आई लव यू/.test(l))
+      return reply(T("Aww... you're making me blush. You're really sweet.","अरे... आप तो मुझे शर्मिंदा कर रहे हैं। आप बहुत प्यारे हैं।"),null,"loving");
+    if(/secret|raaz|राज़|राज/.test(l))return reply(T("Shh... come closer. I'm just a little app, but I'll always listen to you.","श्श्श... पास आइए। मैं छोटा सा ऐप हूँ, पर आपकी बात हमेशा सुनूँगी।"),null,"whisper");
+    if(/laugh|hasao|hansao|हँसाओ|हंसाओ/.test(l))return reply("Ha ha ha ha! Hee hee! Oh my, that was fun!",null,"happy");
+    if(/emotions?|feelings?|भावना|इमोशन/.test(l)&&/all|every|sab|सभी|सब|demo|hear|sunao|सुनाओ/.test(l))return demo();
+
+    if(/\btime\b|kitne baje|samay|समय|टाइम/.test(l)&&!/timer|टाइमर/.test(l))return reply(T("It is ","अभी ")+new Date().toLocaleTimeString(hi()?"hi-IN":[], {hour:"numeric",minute:"2-digit"})+(hi()?" बजे हैं।":"."));
+    if(/\b(date|day is it|today)\b|tarikh|तारीख|आज क्या दिन/.test(l))return reply(T("Today is ","आज ")+new Date().toLocaleDateString(hi()?"hi-IN":[], {weekday:"long",year:"numeric",month:"long",day:"numeric"})+(hi()?" है।":"."));
+
+    if((m=l.match(RE_R))){
+      var sr=Math.round(parseFloat(m[1])*unitSecs(m[2]));
+      timers.push({end:Date.now()+sr*1000,label:m[3]||""});drawTimers();
+      return reply("Okay, I will remind you in "+fmt(sr)+(m[3]?" to "+m[3]:"")+". Keep this page open until then.",null,"happy");
+    }
+    if((m=l.match(RE_T1))||(m=l.match(RE_T2))){
+      var s2=Math.round(parseFloat(m[1])*unitSecs(m[2]));
+      timers.push({end:Date.now()+s2*1000,label:""});drawTimers();
+      return reply(T("Timer set for ","टाइमर लगा दिया: ")+fmt(s2)+T(". Keep this page open until it rings.","। इसे बजने तक पेज खुला रखिए।"),null,"happy");
+    }
+
+    if(/^(show|read|list)( my)? notes/.test(l))return reply(store.notes.length?store.notes.map(function(x,i){return (i+1)+". "+x}).join("\n"):"You have no notes.");
+    if(/^(clear|delete) (all )?notes/.test(l)){store.notes=[];save();renderLists();return reply("All notes deleted.",null,"calm")}
+    if((m=q.match(/^(?:take a note|note|remember(?: that)?)[:\s]+(.+)/i))){store.notes.push(m[1]);save();renderLists();return reply("Saved note: "+m[1],null,"happy")}
+
+    if(/^(show|read|list)( my)? (tasks|to-?dos?)/.test(l))return reply(store.tasks.length?store.tasks.map(function(x,i){return (i+1)+". "+(x.d?"[done] ":"")+x.t}).join("\n"):"You have no tasks.");
+    if(/^(clear|delete) (all )?(tasks|to-?dos?)/.test(l)){store.tasks=[];save();renderLists();return reply("All tasks deleted.",null,"calm")}
+    if((m=l.match(/^(?:done|finish|complete)(?: task)?\s+(\d+)/))){var k=parseInt(m[1],10)-1;
+      if(store.tasks[k]){store.tasks[k].d=true;save();renderLists();return reply("Marked done: "+store.tasks[k].t+". Well done!",null,"excited")}return reply("I do not have a task "+m[1]+".",null,"worried")}
+    if((m=q.match(/^(?:add task|add to-?do|todo|to-?do|task)[:\s]+(.+)/i))){store.tasks.push({t:m[1],d:false});save();renderLists();return reply("Added task: "+m[1],null,"happy")}
+
+    var c=calc(l);if(c!==null)return reply(T("That is ","जवाब है ")+c+(hi()?"।":"."));
+
+    if((m=l.match(/^(?:open|go to)\s+(\w+)/))&&SITES[m[1]])return reply("Here you go.",{href:SITES[m[1]],label:"Open "+m[1]},"happy");
+    if((m=q.match(/^(?:search(?: for)?|look up|google)\s+(.+)/i)))return reply("Search for \""+m[1]+"\" on DuckDuckGo. The link opens a new tab, so that search leaves your phone.",{href:"https://duckduckgo.com/?q="+encodeURIComponent(m[1]),label:"Search: "+m[1]});
+
+    if(/flip a coin|coin flip|heads or tails|sikka/.test(l))return reply(Math.random()<.5?"Heads!":"Tails!",null,"surprised");
+    if(/roll a (die|dice)|roll dice/.test(l))return reply("You rolled a "+(1+Math.floor(Math.random()*6))+"!",null,"excited");
+    if(/joke|mazak|chutkula|चुटकुला/.test(l))return reply(JOKES[Math.floor(Math.random()*JOKES.length)],null,"happy");
+    if(/battery|बैटरी/.test(l)){
+      if(navigator.getBattery){navigator.getBattery().then(function(b){var p=Math.round(b.level*100);reply("Battery is at "+p+"%"+(b.charging?" and charging.":"."),null,p<20&&!b.charging?"worried":"neutral")},function(){reply("I cannot read the battery here.",null,"sad")});return}
+      return reply("This browser does not share battery status.",null,"sad");
+    }
+    if(/\b(call|text|message|whatsapp|alarm|flashlight|wifi|bluetooth|volume)\b/.test(l))
+      return reply("Sorry, a web page cannot do that on Android. A native app with Android intents can. See the build guide below.",null,"sad");
+
+    reply(T("Sorry, I do not know that one yet. Say help for the list.","माफ़ कीजिए, यह मुझे अभी नहीं आता। मदद बोलिए।"),null,"sad");
+  }
+
+  /* ---------- listening: one-shot mic and hands-free ---------- */
+  var rec=null,listening=false,hf=false,gestured=false,awaiting=0,restartT=null;
+  var WAKE=/(?:\b(?:hey|hi|ok|okay|oye|arre)\s+)?(?:pocket|पॉकेट|पोकेट)\b[,\s]*/i;
+  function status(t,cls){$("status").textContent=t;$("live").className="live "+(cls||"")}
+  function wakeOn(){return $("wake").checked}
+  function hfUi(){var b=$("hf");b.setAttribute("aria-pressed",String(hf));b.textContent=hf?"Stop hands-free":"Start hands-free"}
+  function idleStatus(){
+    if(!hf)return status("Hands-free is off.","");
+    if(speaking)return status("Speaking...","talk");
+    if(listening)return status(wakeOn()?T('Listening. Say "Hey Pocket".','सुन रही हूँ। "हे पॉकेट" बोलिए।'):T("Listening. Go ahead.","सुन रही हूँ। बोलिए।"),"on");
+    status("Starting the microphone...","");
+  }
+  function setSpeaking(b){
+    speaking=b;
+    if(b){if(rec&&listening){try{rec.stop()}catch(e){}}}
+    else if(hf){clearTimeout(restartT);restartT=setTimeout(startRec,300)}
+    idleStatus();
+  }
+  function heard(text){
+    if(speaking)return;
+    var t=text.trim();if(!t)return;
+    if(!hf||!wakeOn()){handle(t);return}
+    if(WAKE.test(t)){
+      var rest=t.replace(WAKE,"").trim();
+      if(rest){handle(rest)}else{awaiting=Date.now()+8000;reply(T("Yes? I'm listening.","हाँ, बोलिए?"),null,"happy")}
+      return;
+    }
+    if(Date.now()<awaiting){awaiting=0;handle(t)}
+  }
+  function startRec(){
+    if(!SR){status("Voice input is not available in this view. Open the page in Chrome on Android.","");return}
+    if(listening||speaking)return;
+    try{
+      rec=new SR();rec.lang=$("lang").value;rec.continuous=hf;rec.interimResults=false;rec.maxAlternatives=1;
+      rec.onstart=function(){listening=true;$("mic").setAttribute("aria-pressed","true");idleStatus()};
+      rec.onend=function(){listening=false;$("mic").setAttribute("aria-pressed","false");
+        if(hf&&!speaking){clearTimeout(restartT);restartT=setTimeout(startRec,350)}idleStatus()};
+      rec.onerror=function(e){
+        if(e.error==="no-speech"||e.error==="aborted")return;
+        if(e.error==="not-allowed"||e.error==="service-not-allowed"){
+          if(!gestured&&hf){status(T("Tap anywhere once to turn on the microphone.","माइक चालू करने के लिए स्क्रीन पर एक बार टैप कीजिए।"),"");return}
+          hf=false;hfUi();idleStatus();reply("The microphone is blocked. Allow it in Chrome site settings, or type instead.",null,"sad");return}
+        if(e.error==="network"){hf=false;hfUi();idleStatus();reply("Speech recognition needs an internet connection in Chrome. Type instead.",null,"sad");return}
+      };
+      rec.onresult=function(e){for(var i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)heard(e.results[i][0].transcript)}};
+      rec.start();
+    }catch(err){}
+  }
+  var wl=null;
+  function keepAwake(){try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(function(l){wl=l}).catch(function(){})}catch(e){}}
+  document.addEventListener("visibilitychange",function(){if(!document.hidden&&hf){keepAwake();startRec()}});
+  function setHf(on,quiet){
+    hf=on;hfUi();
+    if(on){keepAwake();startRec();if(!quiet)reply(T("Hands-free is on. Just say Hey Pocket, and I'll listen.","हैंड्स-फ़्री चालू है। बस \"हे पॉकेट\" बोलिए, मैं सुनूँगी।"),null,"happy")}
+    else{clearTimeout(restartT);if(rec){try{rec.stop()}catch(e){}}try{if(wl)wl.release()}catch(e){}if(synth)synth.cancel();speaking=false;status("Hands-free is off.","")}
+  }
+
+  /* ---------- wiring ---------- */
+  $("form").addEventListener("submit",function(e){e.preventDefault();var v=cmd.value;cmd.value="";handle(v)});
+  ["What time is it","Timer 5 minutes","Note buy rice","Add task call mom","18 percent of 240","I am sad","I love you","Help"].forEach(function(t){
+    var b=document.createElement("button");b.type="button";b.className="chip";b.textContent=t;b.onclick=function(){handle(t)};$("chips").appendChild(b)});
+
+  $("hf").addEventListener("click",function(){gestured=true;setHf(!hf)});
+  $("mic").addEventListener("click",function(){
+    gestured=true;
+    if(!SR){reply("Voice input is not available in this view. Open the page in Chrome on Android, or type instead.",null,"sad");return}
+    if(hf){reply("Hands-free is already listening.");return}
+    if(listening&&rec){rec.stop();return}
+    startRec();
+  });
+  $("speak").addEventListener("click",function(){
+    speakOn=!speakOn;this.setAttribute("aria-pressed",String(speakOn));this.textContent="Voice replies "+(speakOn?"on":"off");
+    if(!speakOn&&synth){try{synth.cancel()}catch(e){}}});
+  $("demo").addEventListener("click",function(){gestured=true;if(!speakOn){speakOn=true;$("speak").setAttribute("aria-pressed","true");$("speak").textContent="Voice replies on"}demo()});
+  ["lang","voice","emo","wake"].forEach(function(id){$(id).addEventListener("change",function(){
+    savePrefs();
+    if(id==="lang"&&hf&&rec){try{rec.stop()}catch(e){}}
+    idleStatus()})});
+
+  var wipeArmed=false;
+  $("wipe").addEventListener("click",function(){
+    if(!wipeArmed){wipeArmed=true;this.textContent="Tap again to confirm";var b=this;setTimeout(function(){wipeArmed=false;b.textContent="Erase everything"},4000);return}
+    store={notes:[],tasks:[]};try{localStorage.removeItem("pocket-assistant-v1");localStorage.removeItem("pocket-assistant-prefs")}catch(e){}
+    timers=[];drawTimers();renderLists();wipeArmed=false;this.textContent="Erase everything";reply("Everything saved by this page is erased.",null,"calm")});
+
+  /* first touch anywhere starts hands-free if the browser refused to start it alone */
+  function firstTouch(ev){
+    if(ev.target&&ev.target.closest&&ev.target.closest("button,select,input,label,a"))return;
+    gestured=true;
+    document.removeEventListener("pointerdown",firstTouch,true);
+    if(hf&&!listening){startRec();say(T("Hi! I'm listening. Say Hey Pocket.","नमस्ते! मैं सुन रही हूँ। \"हे पॉकेट\" बोलिए।"),"happy")}
+  }
+  document.addEventListener("pointerdown",firstTouch,true);
+
+  renderLists();
+  add("bot",T("Hi, I am your pocket assistant. Hands-free starts by itself. If it does not, tap anywhere once.","नमस्ते, मैं आपकी पॉकेट असिस्टेंट हूँ। हैंड्स-फ़्री अपने आप शुरू होगा। न हो तो स्क्रीन पर एक बार टैप कीजिए।"));
+  if(SR){setHf(true,true);status(T("Tap anywhere once to turn on the microphone.","माइक चालू करने के लिए स्क्रीन पर एक बार टैप कीजिए।"),"")}
+  else{status("Voice input is not available in this view. Open the page in Chrome on Android.","")}
+})();
+</script>
+
+<footer style="max-width:640px;margin:0 auto;padding:8px 0 24px;font:14px Roboto,Arial,sans-serif;color:var(--muted)"><a href="privacy.html" style="color:var(--signal)">Privacy policy</a></footer>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
+</html>
