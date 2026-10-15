@@ -1,5 +1,5 @@
-/* Pocket Assistant service worker: caches the app files so it opens offline. It never touches the network for anything else. */
-var CACHE = "pocket-assistant-v1";
+/* Pocket Assistant service worker v2: pages load fresh from the network first, then fall back to the offline copy. */
+var CACHE = "pocket-assistant-v2";
 var FILES = ["./", "index.html", "privacy.html", "manifest.json", "icon-192.png", "icon-512.png", "maskable-512.png"];
 
 self.addEventListener("install", function (e) {
@@ -18,12 +18,12 @@ self.addEventListener("fetch", function (e) {
   var req = e.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
-    caches.match(req).then(function (hit) {
-      return hit || fetch(req).then(function (res) {
-        var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put(req, copy); });
-        return res;
-      }).catch(function () { return caches.match("index.html"); });
+    fetch(req).then(function (res) {
+      var copy = res.clone();
+      caches.open(CACHE).then(function (c) { c.put(req, copy); });
+      return res;
+    }).catch(function () {
+      return caches.match(req).then(function (hit) { return hit || caches.match("index.html"); });
     })
   );
 });
